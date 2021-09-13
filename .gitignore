@@ -1,0 +1,7 @@
+build
+courses
+dist
+main.spec
+test.py
+.idea
+__pycache__
