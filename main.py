@@ -13,7 +13,7 @@ import pandas as pd
 from styleframe import StyleFrame
 
 if __name__ != '__main__':
-    exit()
+    os._exit(0)
 
 
 # 转化课程具体时间为数组
@@ -87,10 +87,10 @@ else:
 
 print('读取文件名：%s' % filepath)
 if os.path.exists(filepath):
-    data = format_course("course.xlsx")
+    data = format_course(filepath)
 else:
     print('%s该文件不存在！' % filepath)
-    exit()
+    os._exit(0)
 print('全部课表：%s' % json.dumps(data))
 course_list = {}
 for week in range(1, get_end_week(data) + 1):
@@ -125,4 +125,5 @@ for course_index in course_list:
     widths = np.max(np.array([column_widths, max_widths]))
     writer = sf.ExcelWriter('courses/%s.xlsx' % course_index)
     sf.to_excel(writer, index=True)
+    writer.save()
     print('%s 写入成功！' % course_index)
