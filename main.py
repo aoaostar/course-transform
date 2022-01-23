@@ -1,14 +1,12 @@
 # ! /usr/bin env python3
 # -*- coding: utf-8 -*-
 # author: Pluto
-
+import datetime
 import json
 import os
 import re
 import shutil
 import sys
-
-import numpy as np
 import pandas as pd
 from styleframe import StyleFrame
 
@@ -80,50 +78,95 @@ def get_target_week_course(data: dict, week: int) -> dict:
     return course_list
 
 
-if len(sys.argv) == 2:
-    filepath = sys.argv[1]
-else:
-    filepath = "course.xlsx"
+LOCAL_TIME = datetime.datetime.now()
 
-print('读取文件名：%s' % filepath)
-if os.path.exists(filepath):
-    data = format_course(filepath)
-else:
-    print('%s该文件不存在！' % filepath)
+FILE_PATH = "course1.xlsx"
+
+START_TIME = "9.1"
+if len(sys.argv) == 2:
+    FILE_PATH = sys.argv[1]
+elif len(sys.argv) == 3:
+    FILE_PATH = sys.argv[1]
+    START_TIME = sys.argv[2]
+
+START_TIME = datetime.datetime.strptime(START_TIME, "%m.%d")
+START_TIME = datetime.datetime(LOCAL_TIME.year, START_TIME.month, START_TIME.day)
+# 当前日期
+CURRENT_TIME = START_TIME
+
+print('读取文件名：%s' % FILE_PATH)
+print('当前时间：%s' % LOCAL_TIME)
+print('起始时间：%s' % START_TIME)
+
+if not FILE_PATH.endswith(".xlsx"):
+    print('仅支持.xlsx文件！请更改文件格式后重试！')
     os._exit(0)
-print('全部课表：%s' % json.dumps(data))
+
+data = {}
+if os.path.exists(FILE_PATH):
+    data = format_course(FILE_PATH)
+else:
+    print('%s该文件不存在！' % FILE_PATH)
+    os._exit(0)
+
 course_list = {}
 for week in range(1, get_end_week(data) + 1):
     course_list["第%s周" % week] = get_target_week_course(data, week)
-print('分周课表：%s' % json.dumps(course_list))
 
-# 清空courses
-if os.path.isdir('courses'):
-    shutil.rmtree('courses', ignore_errors=True)
+# 创建文件
 if not os.path.isdir('courses'):
     os.mkdir('courses')
 
-for course_index in course_list:
+writer = pd.ExcelWriter('courses/%s' % FILE_PATH)
 
-    df = pd.DataFrame(course_list[course_index], index=['0102', '0304', '0506', '0708', '091011'])
+for course_index in course_list:
+    index = ['0102', '0304', '0506', '0708', '091011']
+    df = pd.DataFrame(course_list[course_index], index=index)
     sf = StyleFrame(df)
+    # 设置第一行第一列的值为第X周
     sf.index.name = course_index
-    #  计算每列表头的字符宽度
-    column_widths = (
-        sf.columns.to_series().apply(lambda x: len(str(x))).values
+
+    # 设置每周的显示日期
+    colums = []
+    for v in sf.columns:
+        title = "%s\n%s-%s" % (v, CURRENT_TIME.month, CURRENT_TIME.day)
+        colums.append(title)
+        CURRENT_TIME += datetime.timedelta(days=1)
+
+    sf.columns = colums
+
+
+    #  计算每列的最大字符宽度
+
+    def get_max_width(v):
+        s = str(v).split("\n")
+        s = map(lambda x: len(x), s)
+        return max(s)
+
+
+    max_width = (
+        sf.applymap(get_max_width).agg(max).values
     )
     #  计算每列的最大字符宽度
-    max_widths = (
-        sf.applymap(lambda x: len(str(x))).agg(max).values
-    )
-    for row in range(2, 7):
-        sf.set_column_width(row, column_widths[row - 1] + 2)
-    for col in range(1, 8):
-        sf.set_column_width(col, max_widths[col - 1] + 2)
 
-    # 取前两者中每列的最大宽度
-    widths = np.max(np.array([column_widths, max_widths]))
-    writer = sf.ExcelWriter('courses/%s.xlsx' % course_index)
-    sf.to_excel(writer, index=True)
+    max_height = [1]
+    for i in index:
+        arr = map(lambda x: len(str(x).split("\n")), df.loc[i])
+        max_height.append(max(arr))
+    # 设置宽度
+    for row in range(1, 8):
+        sf.set_column_width(row, max(10, max_width[row - 1]) * 2)
+    # 设置高度
+    for row in range(1, 7):
+        sf.set_row_height(row, max(3, max_height[row - 1] + 1.5) * 15)
+
+    # 转化成excel
+    sf.to_excel(writer, sheet_name=course_index, index=True)
     writer.save()
+
     print('%s 写入成功！' % course_index)
+
+# 写出JSON
+with open("courses/%s.json" % FILE_PATH, mode="w") as f:
+    f.write(json.dumps(course_list))
+    print("courses/%s.json 写入成功！" % FILE_PATH)

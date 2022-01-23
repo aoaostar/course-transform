@@ -4,14 +4,16 @@
 * Windows
 
 ```
-./main.exe course.xlsx
+./main.exe course.xlsx 9.1
 ```
 * Linux
 
 ```
-./main course.xlsx
+./main course.xlsx 9.1
 ```
 `course.xlsx`可以为任意`Excel`文件
+
+`9.1` 为第一天的日期：月.日
 
 * `Excel`文件格式示例
 
