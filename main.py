@@ -5,7 +5,6 @@ import datetime
 import json
 import os
 import re
-import shutil
 import sys
 import pandas as pd
 from styleframe import StyleFrame
@@ -32,24 +31,28 @@ def format_course_time(str):
 # 转化课程为字典
 def format_course(file) -> dict:
     df = pd.read_excel(file, sheet_name=0, header=2, names=None, index_col=0)
-
     columns = df.columns
     data = {}
     for col in range(7):
         data[columns[col]] = {}
-        for row in range(5):
+        index = ['0102','0304','0506','0708','0910']
+        for row in range(len(index)):
             course = df.iloc[row, col]
-            if not pd.isnull(course):
+            if not pd.isnull(course) or course.strip() != "":
                 split = str.split(course, "\n")
-                data[columns[col]][df.index[row]] = {}
+                data[columns[col]][index[row]] = {}
+                split = [x for x in split if x.strip() != '']
                 for i in range(len(split)):
                     info = str.split(split[i], "◇")
                     info = [x.strip() for x in info if x.strip() != '']
-                    course_time = format_course_time(info[2])
+                    course_time = []
+                    for v in info:
+                        if re.match('.+?\(.+?\)\[.+?\]',v):
+                            course_time = format_course_time(v)
                     for course_time_index in course_time:
-                        data[columns[col]][df.index[row]][int(course_time_index)] = "\n".join(info)
+                        data[columns[col]][index[row]][int(course_time_index)] = "\n".join(info)
             else:
-                data[columns[col]][df.index[row]] = None
+                data[columns[col]][index[row]] = None
     return data
 
 
@@ -80,7 +83,7 @@ def get_target_week_course(data: dict, week: int) -> dict:
 
 LOCAL_TIME = datetime.datetime.now()
 
-FILE_PATH = "course1.xlsx"
+FILE_PATH = "course.xlsx"
 
 START_TIME = "9.1"
 if len(sys.argv) == 2:
